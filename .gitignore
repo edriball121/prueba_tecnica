@@ -1,0 +1,23 @@
+# Entorno
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# .NET
+bin/
+obj/
+*.user
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

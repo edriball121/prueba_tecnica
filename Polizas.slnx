@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src/Polizas.Api/Polizas.Api.csproj" />
+  <Project Path="src/Polizas.Application/Polizas.Application.csproj" />
+  <Project Path="src/Polizas.Domain/Polizas.Domain.csproj" />
+  <Project Path="src/Polizas.Infrastructure/Polizas.Infrastructure.csproj" />
+</Solution>
