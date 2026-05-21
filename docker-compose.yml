@@ -1,0 +1,75 @@
+# =============================================================================
+# Stack completo: API de pólizas de seguros + PostgreSQL
+#
+# Uso:
+#   cp .env.example .env   # completar los valores reales
+#   docker-compose up --build
+#
+# Las variables sensibles se leen desde el archivo .env (ver .env.example).
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Base de datos PostgreSQL
+  # SEGURIDAD: el puerto de PostgreSQL NO se expone al host; solo es accesible
+  # desde la red interna polizas_net.
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # El schema se ejecuta automáticamente en el primer arranque del contenedor
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    # ⚠️ SEGURIDAD: NO se mapea ningún puerto al host.
+    ports:
+      - "5432:5432"   # ← agregar esta línea temporalmente
+    # PostgreSQL solo es alcanzable por los servicios dentro de polizas_net.
+    networks:
+      - polizas_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # API ASP.NET Core
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      # Doble guion bajo (__) es la convención de ASP.NET Core para separar
+      # secciones de configuración en variables de entorno (equivale a ":")
+      - ConnectionStrings__Default=Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - Timezone__TimeZoneId=${TIMEZONE_ID:-America/Bogota}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - polizas_net
+
+# =============================================================================
+# Redes
+# =============================================================================
+networks:
+  polizas_net:
+    driver: bridge
+
+# =============================================================================
+# Volúmenes persistentes
+# =============================================================================
+volumes:
+  postgres_data:
