@@ -13,6 +13,7 @@ obj/
 # IDE
 .vscode/
 .idea/
+.vs/
 *.swp
 
 # Docker
