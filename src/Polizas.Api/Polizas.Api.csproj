@@ -8,6 +8,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.5.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Polizas.Infrastructure\Polizas.Infrastructure.csproj" />
+    <ProjectReference Include="..\Polizas.Application\Polizas.Application.csproj" />
   </ItemGroup>
 
 </Project>

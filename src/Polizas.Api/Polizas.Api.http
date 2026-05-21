@@ -1,1 +1,209 @@
+@baseUrl = http://localhost:8080
 
+### Health check
+GET {{baseUrl}}/
+
+###
+# ─────────────────────────────────────────────
+#  CLIENTES
+# ─────────────────────────────────────────────
+
+### Crear cliente
+POST {{baseUrl}}/clientes
+Content-Type: application/json
+
+{
+  "nombre": "María García",
+  "documento": "CC-12345678",
+  "email": "maria@example.com",
+  "telefono": "3001234567"
+}
+
+### Crear segundo cliente (para probar múltiples pólizas)
+POST {{baseUrl}}/clientes
+Content-Type: application/json
+
+{
+  "nombre": "Carlos Rodríguez",
+  "documento": "CC-87654321",
+  "email": "carlos@example.com",
+  "telefono": "3109876543"
+}
+
+### Intentar crear cliente con documento duplicado → 400
+POST {{baseUrl}}/clientes
+Content-Type: application/json
+
+{
+  "nombre": "Otro con mismo doc",
+  "documento": "CC-12345678"
+}
+
+###
+# ─────────────────────────────────────────────
+#  PÓLIZAS
+# ─────────────────────────────────────────────
+
+### Crear póliza con dos beneficiarios (clienteId: 1)
+POST {{baseUrl}}/polizas
+Content-Type: application/json
+
+{
+  "clienteId": 1,
+  "primaTotal": 1200000.00,
+  "fechaEmision": "2025-01-01",
+  "fechaVencimiento": "2025-12-31",
+  "beneficiarios": [
+    {
+      "nombre": "Ana García",
+      "documento": "CC-11111111",
+      "email": "ana@example.com",
+      "parentesco": "Cónyuge"
+    },
+    {
+      "nombre": "Luis García",
+      "documento": "CC-22222222",
+      "parentesco": "Hijo"
+    }
+  ]
+}
+
+### Crear segunda póliza para el mismo cliente (activo simultáneo)
+POST {{baseUrl}}/polizas
+Content-Type: application/json
+
+{
+  "clienteId": 1,
+  "primaTotal": 600000.00,
+  "fechaEmision": "2025-03-01",
+  "fechaVencimiento": "2025-09-01",
+  "beneficiarios": [
+    {
+      "nombre": "Ana García",
+      "documento": "CC-11111111",
+      "parentesco": "Cónyuge"
+    }
+  ]
+}
+
+### Crear póliza ya vencida (para probar mora)
+POST {{baseUrl}}/polizas
+Content-Type: application/json
+
+{
+  "clienteId": 2,
+  "primaTotal": 800000.00,
+  "fechaEmision": "2024-01-01",
+  "fechaVencimiento": "2024-06-30",
+  "beneficiarios": [
+    {
+      "nombre": "Pedro López",
+      "documento": "CC-33333333",
+      "parentesco": "Padre"
+    }
+  ]
+}
+
+### Crear póliza con cliente inexistente → 404
+POST {{baseUrl}}/polizas
+Content-Type: application/json
+
+{
+  "clienteId": 9999,
+  "primaTotal": 500000.00,
+  "fechaEmision": "2025-01-01",
+  "fechaVencimiento": "2025-12-31",
+  "beneficiarios": []
+}
+
+###
+# ─────────────────────────────────────────────
+#  PAGOS  (Idempotency-Key obligatorio)
+# ─────────────────────────────────────────────
+
+### Pago parcial sobre póliza 1
+POST {{baseUrl}}/polizas/1/pagos
+Content-Type: application/json
+Idempotency-Key: key-pago-001
+
+{
+  "monto": 400000.00
+}
+
+### Segundo pago parcial sobre póliza 1
+POST {{baseUrl}}/polizas/1/pagos
+Content-Type: application/json
+Idempotency-Key: key-pago-002
+
+{
+  "monto": 400000.00
+}
+
+### Tercer pago — completa la prima (1200000 = 400000 + 400000 + 400000)
+POST {{baseUrl}}/polizas/1/pagos
+Content-Type: application/json
+Idempotency-Key: key-pago-003
+
+{
+  "monto": 400000.00
+}
+
+### Reintentar mismo pago → 409 Conflict (idempotencia)
+POST {{baseUrl}}/polizas/1/pagos
+Content-Type: application/json
+Idempotency-Key: key-pago-001
+
+{
+  "monto": 400000.00
+}
+
+### Pago sin header Idempotency-Key → 400
+POST {{baseUrl}}/polizas/1/pagos
+Content-Type: application/json
+
+{
+  "monto": 200000.00
+}
+
+### Pago sobre póliza inexistente → 404
+POST {{baseUrl}}/polizas/9999/pagos
+Content-Type: application/json
+Idempotency-Key: key-pago-inexistente
+
+{
+  "monto": 100000.00
+}
+
+### Pago con monto inválido → 400
+POST {{baseUrl}}/polizas/1/pagos
+Content-Type: application/json
+Idempotency-Key: key-pago-monto-invalido
+
+{
+  "monto": -500.00
+}
+
+###
+# ─────────────────────────────────────────────
+#  ESTADO DE CARTERA
+# ─────────────────────────────────────────────
+
+### Estado póliza 1 (al día después de los tres pagos)
+GET {{baseUrl}}/polizas/1/estado
+
+### Estado póliza 2 (activa, sin pagos)
+GET {{baseUrl}}/polizas/2/estado
+
+### Estado póliza 3 (vencida en 2024, sin pagos → en mora)
+GET {{baseUrl}}/polizas/3/estado
+
+### Estado póliza inexistente → 404
+GET {{baseUrl}}/polizas/9999/estado
+
+###
+# ─────────────────────────────────────────────
+#  REPORTES
+# ─────────────────────────────────────────────
+
+### Cartera vencida (mora > 30 días)
+GET {{baseUrl}}/reportes/cartera-vencida
